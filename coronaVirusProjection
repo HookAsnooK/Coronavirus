@@ -1,0 +1,38 @@
+clear all; close all;
+run dataCoronaVirus;
+mZero = [80000,8000,8000,80000];
+    
+% Plot
+iCountry = 2;
+cF = 20; % Percent data collected
+eDays = 30; % Days to extrapolate
+
+t = data(iCountry).dayNum-data(iCountry).dayNum(1);
+t2 = [t,max(t)+[1:eDays]];
+y = data(iCountry).cases;
+F = @(x,xdata)x(1)./(1+exp(-x(2)*(xdata-x(3))));
+x0 = [mZero(iCountry),0.35,15];
+[x(iCountry,:)] = lsqcurvefit(F,x0,t,y);
+err = sum(abs(F(x(iCountry,:),t)-y))/sum(t);
+
+% Determine Confidence Coefficients
+sM = interp2(confidenceTable.x,confidenceTable.y,confidenceTable.M,cF,err);
+sAlpha = interp2(confidenceTable.x,confidenceTable.y,confidenceTable.alpha,cF,err);
+sTZero = interp2(confidenceTable.x,confidenceTable.y,confidenceTable.tZero,cF,err);
+
+%subplot(1,2,1); hold on; grid on;
+figure; hold on; grid on;
+plot(t2,F(x(iCountry,:),t2),'k','linewidth',2)
+plot(t2,F(x(iCountry,:).*(ones(1,3)+[sM,sAlpha,sTZero]./100),t2),'--k')
+plot(t2,F(x(iCountry,:).*(ones(1,3)-[sM,sAlpha,sTZero]./100),t2),'--k')
+plot(t,data(iCountry).cases,'.','markersize',20)
+title({data(iCountry).country;...
+        ['M = ', num2str(x(iCountry,1),'%0.0f'),...
+        '   \alpha = ', num2str(x(iCountry,2),'%0.3f'),...
+        '   t_0 = ', num2str(x(iCountry,3),'%0.1f')];...
+        ['Data Range = 1%-',num2str(cF,'%0.0f'),'%',...
+        '   Average Error = ',num2str(err,'%0.0f')]})
+    xlabel('Day')
+    ylabel('Overall Cases')
+set(gca,'xtick',t2(2:2:end),'xticklabel',datestr(t2(2:2:end)+data(iCountry).dayNum(1),'mm/dd'),'xticklabelrotation',90)
+legend({'Nominal S-Curve','+90% Confidence','-90% Confidence','Data'},'location','northwest')
